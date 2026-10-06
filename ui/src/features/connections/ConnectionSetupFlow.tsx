@@ -1475,9 +1475,13 @@ function StandardConnectionSetupFlow({
     const explicitMethod = methods.find(candidate => requestedAi
       ? candidate.ai?.provider === requestedAi.provider && (!("mode" in requestedAi) || requestedAi.mode !== "responsible_user") && candidate.ai.method === requestedAi.method
       : candidate.key === requestedMethodKey);
+    // Estate patch (tdh): on a self-hosted instance that is NOT enrolled with
+    // Paperclip Cloud, the managed sign-in funnel is a dead end — default to
+    // the best customer-owned method (e.g. GitHub's PAT form) instead.
     const initialMethod = explicitMethod ?? (
       requestedDefinitionUsesManagedConnector
         && !requestedEntryAdvertisesManagedConnector
+        && connectorEnrollmentQuery.data?.configured === true
         ? recommendedManagedConnectorMethod(fullRequestedDefinition)
         : null
     ) ?? recommendedSetupConnectionMethod(methods);
@@ -2013,11 +2017,21 @@ function StandardConnectionSetupFlow({
     && connectorEnrollmentQuery.data?.configured === true
   );
 
+  // Estate patch (tdh): only intercept the credential step for the managed
+  // sign-in intent itself. When a customer-owned method (e.g. GitHub's PAT
+  // form) is selected, render it instead of the cloud-enrollment wall.
+  const selectedMethodUsesManagedConnector = Boolean(
+    fullRequestedDefinition?.methods.some((candidate) =>
+      (candidate.oauthStrategy === "paperclip_cloud_connector"
+        || candidate.oauthStrategy === "paperclip_id_connector")
+      && candidate.key === connectionMethodKey)
+  );
   const showConnectorEnrollmentStep = Boolean(
     step === "key"
     && entry
     && requestedDefinitionUsesManagedConnector
     && !entryAdvertisesManagedConnector
+    && selectedMethodUsesManagedConnector
     && (
       connectorEnrollmentQuery.isLoading
       || connectorEnrollmentQuery.isError

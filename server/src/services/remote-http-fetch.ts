@@ -43,6 +43,28 @@ export type RemoteHttpSocketFactory = (target: {
   useTls: boolean;
 }) => Socket;
 
+/**
+ * Estate patch (tdh): optional egress proxy for remote HTTP fetches.
+ *
+ * When PAPERCLIP_REMOTE_HTTP_PROXY is set (http:// URL), https requests are
+ * tunnelled through the proxy via CONNECT instead of dialling the approved
+ * addresses directly. The proxy resolves the target name, so the
+ * DNS-rebinding pinning deliberately does not apply — this is an operator
+ * opt-in for networks where direct egress to a host is blocked (e.g.
+ * geo-filtered MCP endpoints). TLS still verifies against the configured
+ * hostname. http:// endpoints are rejected: only CONNECT tunnelling is
+ * implemented.
+ */
+function remoteHttpProxyUrl(): URL | null {
+  const raw = process.env.PAPERCLIP_REMOTE_HTTP_PROXY?.trim();
+  if (!raw) return null;
+  const url = new URL(raw);
+  if (url.protocol !== "http:") {
+    throw new Error("PAPERCLIP_REMOTE_HTTP_PROXY must be an http:// proxy URL");
+  }
+  return url;
+}
+
 export type GuardedRemoteHttpFetchOptions = RemoteHttpEndpointGuardOptions & {
   /** Builds the rejection thrown when the guard or the peer check fails. */
   error: RemoteHttpEndpointErrorFactory;
@@ -141,6 +163,33 @@ async function pinnedRequest(
   const signal = init.signal ?? null;
 
   signal?.throwIfAborted?.();
+
+  const proxy = remoteHttpProxyUrl();
+  if (proxy) {
+    if (!useTls) {
+      throw options.error(
+        "PAPERCLIP_REMOTE_HTTP_PROXY only supports https endpoints",
+        "remote_http_proxy_unsupported",
+      );
+    }
+    const socket = await openProxyTunnel({ proxy, hostname, port, signal, options });
+    try {
+      return await sendRequest({
+        endpoint,
+        hostname,
+        port,
+        useTls,
+        socket,
+        init,
+        signal,
+        responseTimeoutMs: options.responseTimeoutMs ?? DEFAULT_RESPONSE_TIMEOUT_MS,
+        error: options.error,
+      });
+    } catch (error) {
+      socket.destroy();
+      throw error;
+    }
+  }
 
   const socket = await dialApprovedAddress({ approved, approvedSet, port, hostname, useTls, signal, options });
 
@@ -263,6 +312,96 @@ async function openVerifiedSocket(input: {
     throw new UnreachableAddressError(error);
   }
   return secure;
+}
+
+/**
+ * Estate patch (tdh): open a CONNECT tunnel through the egress proxy and
+ * wrap it in TLS verified against the configured hostname. The proxy
+ * resolves the target name; the DNS-pinning guard intentionally does not
+ * apply on this path.
+ */
+async function openProxyTunnel(input: {
+  proxy: URL;
+  hostname: string;
+  port: number;
+  signal: AbortSignal | null;
+  options: GuardedRemoteHttpFetchOptions;
+}): Promise<TLSSocket> {
+  const { proxy, hostname, port, signal, options } = input;
+  const connectTimeoutMs = options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
+  const raw = netConnect({ host: proxy.hostname, port: Number(proxy.port) || 80 });
+  try {
+    await once(raw, "connect", { signal, timeoutMs: connectTimeoutMs, what: "connect to proxy" });
+    const credentials = proxy.username || proxy.password
+      ? Buffer.from(`${decodeURIComponent(proxy.username)}:${decodeURIComponent(proxy.password)}`).toString("base64")
+      : null;
+    raw.write(
+      `CONNECT ${hostname}:${port} HTTP/1.1\r\n` +
+        `Host: ${hostname}:${port}\r\n` +
+        (credentials ? `Proxy-Authorization: Basic ${credentials}\r\n` : "") +
+        "\r\n",
+    );
+    const head = await readProxyConnectResponse(raw, connectTimeoutMs, options.error);
+    if (!/^HTTP\/1\.[01] 2\d\d/.test(head)) {
+      throw options.error(
+        `Egress proxy refused CONNECT: ${head.split("\r\n")[0]}`,
+        "remote_http_proxy_refused",
+      );
+    }
+  } catch (error) {
+    raw.destroy();
+    throw error;
+  }
+  const secure = tlsConnect({
+    socket: raw,
+    servername: isIP(hostname) === 0 ? hostname : undefined,
+    host: hostname,
+  });
+  try {
+    await once(secure, "secureConnect", { signal, timeoutMs: connectTimeoutMs, what: "negotiate TLS with" });
+  } catch (error) {
+    secure.destroy();
+    raw.destroy();
+    throw error;
+  }
+  return secure;
+}
+
+/** Estate patch (tdh): collect the proxy's response head to a CONNECT request. */
+function readProxyConnectResponse(
+  socket: Socket,
+  timeoutMs: number,
+  error: RemoteHttpEndpointErrorFactory,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(error("Timed out waiting for the egress proxy's CONNECT response", "remote_http_proxy_failed"));
+    }, timeoutMs);
+    const onChunk = (chunk: Buffer) => {
+      data += chunk.toString("latin1");
+      const end = data.indexOf("\r\n\r\n");
+      if (end !== -1) {
+        cleanup();
+        resolve(data.slice(0, end));
+      } else if (data.length > 16 * 1024) {
+        cleanup();
+        reject(error("Egress proxy CONNECT response head too large", "remote_http_proxy_failed"));
+      }
+    };
+    const onError = (cause: Error) => {
+      cleanup();
+      reject(error(`Egress proxy connection failed: ${cause.message}`, "remote_http_proxy_failed"));
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      socket.off("data", onChunk);
+      socket.off("error", onError);
+    };
+    socket.on("data", onChunk);
+    socket.on("error", onError);
+  });
 }
 
 async function sendRequest(input: {

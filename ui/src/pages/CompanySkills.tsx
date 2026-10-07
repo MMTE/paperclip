@@ -1132,11 +1132,22 @@ export function DiscoveryGrid({
   showBrowseRails?: boolean;
 }) {
   const installedView = tab === "installed";
-  const viewTitle = installedView ? "Installed skills" : "Discover skills";
+  const marketplaceView = tab === "marketplace";
+  const viewTitle = installedView
+    ? "Installed skills"
+    : marketplaceView
+      ? "Marketplace skills"
+      : "Discover skills";
   const viewDescription = installedView
     ? "Skills available to this organization."
-    : "Browse skills from every available source.";
-  const searchLabel = installedView ? "Search installed skills" : "Search discoverable skills";
+    : marketplaceView
+      ? "Public skill directories — skills.sh and skillsmp.com."
+      : "Browse skills from every available source.";
+  const searchLabel = installedView
+    ? "Search installed skills"
+    : marketplaceView
+      ? "Search marketplace skills"
+      : "Search discoverable skills";
   // Source filter (github / skills.sh / local / …) lives in the grid so it
   // narrows whatever the parent already filtered by tab/category/search (PAP-10907 E).
   const [sourceBadgeFilter, setSourceBadgeFilter] = useState<string>("all");

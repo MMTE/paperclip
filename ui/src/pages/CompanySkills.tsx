@@ -26,7 +26,7 @@ import type {
   CompanySkillVersion,
 } from "@paperclipai/shared";
 import { companySkillsApi } from "../api/companySkills";
-import { MarketplaceSection } from "../components/MarketplaceSection";
+import { useMarketplaceCards } from "../components/MarketplaceSection";
 import { foldersApi } from "../api/folders";
 import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
@@ -562,7 +562,7 @@ function formatBytes(bytes: number) {
 // ---------------------------------------------------------------------------
 // Skills Store discovery grid (PAP-10879)
 // ---------------------------------------------------------------------------
-export type DiscoveryTab = "installed" | "discover" | "marketplace";
+export type DiscoveryTab = "installed" | "discover";
 
 export function resolveDiscoveryTab(tabParam: string | null): DiscoveryTab {
   return resolveSkillsDiscoveryView(tabParam);
@@ -1134,22 +1134,11 @@ export function DiscoveryGrid({
   showBrowseRails?: boolean;
 }) {
   const installedView = tab === "installed";
-  const marketplaceView = tab === "marketplace";
-  const viewTitle = installedView
-    ? "Installed skills"
-    : marketplaceView
-      ? "Marketplace skills"
-      : "Discover skills";
+  const viewTitle = installedView ? "Installed skills" : "Discover skills";
   const viewDescription = installedView
     ? "Skills available to this organization."
-    : marketplaceView
-      ? "Public skill directories — skills.sh and skillsmp.com."
-      : "Browse skills from every available source.";
-  const searchLabel = installedView
-    ? "Search installed skills"
-    : marketplaceView
-      ? "Search marketplace skills"
-      : "Search discoverable skills";
+    : "Browse skills from every available source.";
+  const searchLabel = installedView ? "Search installed skills" : "Search discoverable skills";
   // Source filter (github / skills.sh / local / …) lives in the grid so it
   // narrows whatever the parent already filtered by tab/category/search (PAP-10907 E).
   const [sourceBadgeFilter, setSourceBadgeFilter] = useState<string>("all");
@@ -4604,6 +4593,10 @@ export function CompanySkills() {
     enabled: Boolean(selectedCompanyId),
     staleTime: 60_000,
   });
+  // tdh: marketplace listings (skills.sh + skillsmp.com) as Discover cards.
+  const { cards: marketplaceCards, urlByKey: marketplaceUrlByKey } = useMarketplaceCards(
+    streamlinedUiEnabled && effectiveDiscoveryTab === "discover",
+  );
 
   const catalogDetailQuery = useQuery({
     queryKey: queryKeys.companySkills.catalogDetail(selectedCatalogRef ?? ""),
@@ -4642,13 +4635,17 @@ export function CompanySkills() {
   );
   const discoveryTabCards = useMemo(
     () => {
-      if (streamlinedUiEnabled) return cardsForTab(discoveryCards, discoveryTab);
+      if (streamlinedUiEnabled) {
+        const base = cardsForTab(discoveryCards, discoveryTab);
+        // tdh: marketplace listings join the Discover surface as extra cards.
+        return discoveryTab === "discover" ? [...base, ...marketplaceCards] : base;
+      }
       if (legacyDiscoveryTab === "installed") return discoveryCards.filter((card) => card.installed);
       if (legacyDiscoveryTab === "catalog") return discoveryCards.filter((card) => card.catalogRef != null);
       if (legacyDiscoveryTab === "bundled") return discoveryCards.filter((card) => card.required);
       return discoveryCards;
     },
-    [discoveryCards, discoveryTab, legacyDiscoveryTab, streamlinedUiEnabled],
+    [discoveryCards, discoveryTab, legacyDiscoveryTab, marketplaceCards, streamlinedUiEnabled],
   );
   const discoveryCategoryCounts = useMemo<DiscoveryCategory[]>(() => {
     const counts = new Map<string, number>();
@@ -5195,6 +5192,11 @@ export function CompanySkills() {
   // page: installed skills go to their detail route; catalog/bundled/optional
   // skills open the standalone catalog page (no modal, no legacy split view).
   function openDiscoveryCard(card: DiscoveryCard) {
+    if (card.key.startsWith("mp:")) {
+      const url = marketplaceUrlByKey.get(card.key);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
     if (card.skillId) {
       navigate(routeForSkillId(card.skillId));
       return;
@@ -5495,12 +5497,7 @@ export function CompanySkills() {
             </Tabs>
           </div>
         ) : null}
-        {streamlinedUiEnabled && effectiveDiscoveryTab === "marketplace" ? (
-          <div className="min-h-0 flex-1 overflow-auto">
-            <MarketplaceSection />
-          </div>
-        ) : (
-          <DiscoveryGrid
+        <DiscoveryGrid
           tab={effectiveDiscoveryTab}
           categories={discoveryCategoryCounts}
           categoryTotal={discoveryTabCards.length}
@@ -5586,7 +5583,6 @@ export function CompanySkills() {
           folderNudgeStorageKey={showInstalledFolders ? `paperclip:skills-folder-nudge:${selectedCompanyId ?? "none"}` : undefined}
           showBrowseRails={browseRailsEnabled}
         />
-        )}
         </>
       ) : activeView === "installed" && selectedSkillId ? (
         <SkillDetailPage

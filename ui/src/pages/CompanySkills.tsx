@@ -818,6 +818,7 @@ function SkillCard({
   selected = false,
   selectMode = false,
   showFolderBadge = false,
+  onInstall,
   onOpen,
   onSelectChange,
   onMove,
@@ -831,6 +832,8 @@ function SkillCard({
   /** Show the card's folder so search results reveal where an item lives (user story 5). */
   showFolderBadge?: boolean;
   onOpen: (card: DiscoveryCard) => void;
+  /** Marketplace cards: import the skill through the stock import endpoint. */
+  onInstall?: (card: DiscoveryCard) => void;
   onSelectChange?: (card: DiscoveryCard, selected: boolean) => void;
   onMove?: (card: DiscoveryCard, folderId: string | null) => void;
   onCreateFolderAndMove?: (card: DiscoveryCard) => void;
@@ -949,6 +952,19 @@ function SkillCard({
                 : "Not enabled for any agents"
               : "Available to install"}
           </span>
+          {onInstall ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto h-6 px-2 text-(length:--text-micro)"
+              onClick={(event) => {
+                event.stopPropagation();
+                onInstall(card);
+              }}
+            >
+              Install
+            </Button>
+          ) : null}
           {card.starCount > 0 ? (
             <>
               <span aria-hidden="true">·</span>
@@ -1038,6 +1054,7 @@ function CategoryNav({
 export function DiscoveryGrid({
   tab,
   categories,
+  onInstallCard,
   categoryTotal,
   activeCategory,
   onCategoryChange,
@@ -1092,6 +1109,8 @@ export function DiscoveryGrid({
   sort: DiscoverySort;
   onSortChange: (sort: DiscoverySort) => void;
   cards: DiscoveryCard[];
+  /** Marketplace cards: import through the stock skill-import endpoint. */
+  onInstallCard?: (card: DiscoveryCard) => void;
   onOpenCard: (card: DiscoveryCard) => void;
   loading: boolean;
   error: string | null;
@@ -1482,6 +1501,7 @@ export function DiscoveryGrid({
                     selectMode={selectMode}
                     showFolderBadge={Boolean(folderResult && search.trim())}
                     onOpen={onOpenCard}
+                    onInstall={card.key.startsWith("mp:") ? onInstallCard : undefined}
                     onSelectChange={onSelectCard}
                     onMove={onMoveCard}
                     onCreateFolderAndMove={onCreateFolderAndMoveCard}
@@ -4593,10 +4613,9 @@ export function CompanySkills() {
     enabled: Boolean(selectedCompanyId),
     staleTime: 60_000,
   });
-  // tdh: marketplace listings (skills.sh + skillsmp.com) as Discover cards.
-  const { cards: marketplaceCards, urlByKey: marketplaceUrlByKey } = useMarketplaceCards(
-    streamlinedUiEnabled && effectiveDiscoveryTab === "discover",
-  );
+  // tdh: marketplace listings (skillsmp.com) as Discover cards.
+  const { cards: marketplaceCards, urlByKey: marketplaceUrlByKey, installSourceByKey: marketplaceInstallSourceByKey } =
+    useMarketplaceCards(streamlinedUiEnabled && effectiveDiscoveryTab === "discover");
 
   const catalogDetailQuery = useQuery({
     queryKey: queryKeys.companySkills.catalogDetail(selectedCatalogRef ?? ""),
@@ -4637,8 +4656,12 @@ export function CompanySkills() {
     () => {
       if (streamlinedUiEnabled) {
         const base = cardsForTab(discoveryCards, discoveryTab);
-        // tdh: marketplace listings join the Discover surface as extra cards.
-        return discoveryTab === "discover" ? [...base, ...marketplaceCards] : base;
+        if (discoveryTab !== "discover") return base;
+        // tdh: marketplace listings join Discover; drop ones already installed.
+        const installedNames = new Set(
+          discoveryCards.filter((card) => card.installed).map((card) => card.name.trim().toLowerCase()),
+        );
+        return [...base, ...marketplaceCards.filter((card) => !installedNames.has(card.name.trim().toLowerCase()))];
       }
       if (legacyDiscoveryTab === "installed") return discoveryCards.filter((card) => card.installed);
       if (legacyDiscoveryTab === "catalog") return discoveryCards.filter((card) => card.catalogRef != null);
@@ -5205,6 +5228,14 @@ export function CompanySkills() {
       selectCatalog(card.catalogRef);
     }
   }
+  function installMarketplaceCard(card: DiscoveryCard) {
+    const source = marketplaceInstallSourceByKey.get(card.key);
+    if (!source) {
+      pushToast({ tone: "warn", title: "Cannot install", body: "This listing has no linked GitHub repository." });
+      return;
+    }
+    importSkill.mutate(source);
+  }
 
   // "Back to store" returns to the discovery grid while keeping the tab /
   // category / source filters the user arrived with (PAP-10907).
@@ -5498,6 +5529,7 @@ export function CompanySkills() {
           </div>
         ) : null}
         <DiscoveryGrid
+          onInstallCard={installMarketplaceCard}
           tab={effectiveDiscoveryTab}
           categories={discoveryCategoryCounts}
           categoryTotal={discoveryTabCards.length}

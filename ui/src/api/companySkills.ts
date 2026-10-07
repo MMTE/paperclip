@@ -258,14 +258,18 @@ export const companySkillsApi = {
   marketplaceList: () => api.get<MarketplaceListing>("/skills/marketplace"),
 };
 
-// tdh patch (2026-10-07): marketplace listings (skills.sh + skillsmp.com)
+// tdh patch (2026-10-07): marketplace listings (skillsmp.com API)
 export type MarketplaceSkill = {
   key: string;
   name: string;
-  owner: string;
-  repo: string;
+  author: string;
+  description: string | null;
+  stars: number | null;
   url: string;
-  source: "skills-sh" | "skillsmp";
+  githubUrl: string | null;
+  /** owner/repo[/skill-dir] — accepted by the stock skill-import endpoint. */
+  installSource: string | null;
+  source: "skillsmp";
 };
 export type MarketplaceListing = {
   fetchedAt: string;

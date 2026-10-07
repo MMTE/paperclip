@@ -7,42 +7,38 @@ import {
 } from "../api/companySkills";
 import type { DiscoveryCard } from "../pages/CompanySkills";
 
-const SOURCE_CATEGORY: Record<MarketplaceSkill["source"], string> = {
-  "skills-sh": "skills.sh",
-  skillsmp: "skillsmp.com",
-};
+const SOURCE_CATEGORY = "skillsmp.com";
 
 function toCard(skill: MarketplaceSkill, fetchedAt: string): DiscoveryCard {
-  const category = SOURCE_CATEGORY[skill.source];
   return {
     key: `mp:${skill.source}:${skill.key}`,
     skillId: null,
     catalogRef: null,
     name: skill.name,
     slug: skill.name,
-    author: `${skill.owner}/${skill.repo}`,
+    author: skill.author,
     version: null,
-    tagline: `From ${category}`,
-    description: null,
-    categories: [category],
+    tagline: skill.description?.slice(0, 120) ?? `From ${SOURCE_CATEGORY}`,
+    description: skill.description,
+    categories: [SOURCE_CATEGORY],
     iconUrl: null,
     color: null,
-    starCount: 0,
+    starCount: skill.stars ?? 0,
     agentCount: 0,
     forkCount: 0,
     installed: false,
     required: false,
     forkedFrom: false,
     updatedAt: Date.parse(fetchedAt) || Date.now(),
-    sourceBadge: skill.source === "skills-sh" ? "skills_sh" : null,
-    sourceLabel: category,
+    sourceBadge: "github",
+    sourceLabel: SOURCE_CATEGORY,
     sourceKind: null,
   };
 }
 
-// tdh patch (2026-10-07): marketplace listings (skills.sh + skillsmp.com)
-// surface as extra Discover cards — the category rail doubles as the
-// website filter. Card click opens the listing on its marketplace site.
+// tdh patch (2026-10-07): skillsmp.com listings surface as extra Discover
+// cards (category rail = website filter). Installs flow through the stock
+// skill-import endpoint via owner/repo[/dir] sources.
 export function useMarketplaceCards(enabled: boolean) {
   const listing = useQuery<MarketplaceListing>({
     queryKey: ["skills-marketplace"],
@@ -58,6 +54,13 @@ export function useMarketplaceCards(enabled: boolean) {
       ),
     [listing.data],
   );
+  const installSourceByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const skill of listing.data?.skills ?? []) {
+      if (skill.installSource) map.set(`mp:${skill.source}:${skill.key}`, skill.installSource);
+    }
+    return map;
+  }, [listing.data]);
   const urlByKey = useMemo(() => {
     const map = new Map<string, string>();
     for (const skill of listing.data?.skills ?? []) {
@@ -65,5 +68,5 @@ export function useMarketplaceCards(enabled: boolean) {
     }
     return map;
   }, [listing.data]);
-  return { cards, urlByKey, isLoading: listing.isLoading };
+  return { cards, urlByKey, installSourceByKey, isLoading: listing.isLoading };
 }

@@ -52,6 +52,7 @@ import {
   listCatalogSkillsOrEmpty,
   readCatalogSkillFile,
 } from "../services/skills-catalog.js";
+import { listMarketplaceSkills } from "../services/skills-marketplace.js";
 import { badRequest, conflict, forbidden, unauthorized, HttpError } from "../errors.js";
 import { assertAuthenticated, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { getTelemetryClient } from "../telemetry.js";
@@ -403,6 +404,12 @@ export function companySkillRoutes(db: Db) {
       q: firstQueryString(req.query.q),
     });
     res.json(listCatalogSkillsOrEmpty(query));
+  });
+
+  // tdh patch (2026-10-07): marketplace listings (skills.sh + skillsmp.com)
+  router.get("/skills/marketplace", async (req, res) => {
+    assertAuthenticated(req);
+    res.json(await listMarketplaceSkills());
   });
 
   router.get("/skills/catalog/:catalogId/files", async (req, res) => {

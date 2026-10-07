@@ -1,0 +1,1 @@
+import{i as e}from"./rolldown-runtime-BQ-vy_Pv.js";import{Pr as o,S as s}from"./createLucideIcon-BeRqU-eU.js";var a=e(o(),1);function m({className:r,...t}){return(0,a.jsx)("div",{"data-slot":"skeleton",className:s("bg-accent/75 rounded-md",r),...t})}export{m as t};

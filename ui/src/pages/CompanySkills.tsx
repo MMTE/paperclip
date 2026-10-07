@@ -26,6 +26,7 @@ import type {
   CompanySkillVersion,
 } from "@paperclipai/shared";
 import { companySkillsApi } from "../api/companySkills";
+import { MarketplaceSection } from "../components/MarketplaceSection";
 import { foldersApi } from "../api/folders";
 import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
@@ -5484,6 +5485,7 @@ export function CompanySkills() {
             </Tabs>
           </div>
         ) : null}
+        {streamlinedUiEnabled && effectiveDiscoveryTab === "discover" ? <MarketplaceSection /> : null}
         <DiscoveryGrid
           tab={effectiveDiscoveryTab}
           categories={discoveryCategoryCounts}

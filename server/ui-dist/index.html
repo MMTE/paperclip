@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#18181b" />
+    <meta name="apple-mobile-web-app-title" content="Paperclip" />
+    <title>Paperclip</title>
+    <!-- PAPERCLIP_RUNTIME_BRANDING_START -->
+    <!-- PAPERCLIP_RUNTIME_BRANDING_END -->
+    <!-- PAPERCLIP_FAVICON_START -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <!-- PAPERCLIP_FAVICON_END -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" crossorigin="use-credentials" />
+    <script>
+      (() => {
+        const key = "paperclip.theme";
+        const darkThemeColor = "#18181b";
+        const lightThemeColor = "#ffffff";
+        try {
+          const stored = window.localStorage.getItem(key);
+          const prefersDark =
+            typeof window.matchMedia === "function" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
+          const fallback = prefersDark ? "dark" : "light";
+          const theme = stored === "light" || stored === "dark" ? stored : fallback;
+          const isDark = theme === "dark";
+          document.documentElement.classList.toggle("dark", isDark);
+          document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+          const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+          if (themeColorMeta) {
+            themeColorMeta.setAttribute("content", isDark ? darkThemeColor : lightThemeColor);
+          }
+        } catch {
+          document.documentElement.classList.add("dark");
+          document.documentElement.style.colorScheme = "dark";
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-D5dGm6HX.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-BQ-vy_Pv.js">
+    <link rel="modulepreload" crossorigin href="/assets/createLucideIcon-BeRqU-eU.js">
+    <link rel="modulepreload" crossorigin href="/assets/preload-helper-BATLnrmA.js">
+    <link rel="modulepreload" crossorigin href="/assets/zap-RyxHXn8C.js">
+    <link rel="modulepreload" crossorigin href="/assets/agents-V80gCTZE.js">
+    <link rel="modulepreload" crossorigin href="/assets/button-CpKYuv7H.js">
+    <link rel="modulepreload" crossorigin href="/assets/EmptyState-CYmXJZra.js">
+    <link rel="modulepreload" crossorigin href="/assets/router-BOdzPyui.js">
+    <link rel="modulepreload" crossorigin href="/assets/bot-COC10wvJ.js">
+    <link rel="modulepreload" crossorigin href="/assets/mention-chips-cDedVg4e.js">
+    <link rel="modulepreload" crossorigin href="/assets/dist-D13FbmAD.js">
+    <link rel="modulepreload" crossorigin href="/assets/dist-DVHRvcMf.js">
+    <link rel="modulepreload" crossorigin href="/assets/AgentAvatar-BQcATpuj.js">
+    <link rel="modulepreload" crossorigin href="/assets/dist-Dqqmm7he.js">
+    <link rel="modulepreload" crossorigin href="/assets/MarkdownEditor-DI7MbusT.js">
+    <link rel="modulepreload" crossorigin href="/assets/alert-dialog-Cc9jUh_l.js">
+    <link rel="modulepreload" crossorigin href="/assets/check-DK7e4lDi.js">
+    <link rel="modulepreload" crossorigin href="/assets/chevron-right-b2Qebt4W.js">
+    <link rel="modulepreload" crossorigin href="/assets/checkbox-BGvDZ4GU.js">
+    <link rel="modulepreload" crossorigin href="/assets/label-DMwhLO1b.js">
+    <link rel="modulepreload" crossorigin href="/assets/clipboard-aF8KQ9q6.js">
+    <link rel="modulepreload" crossorigin href="/assets/loader-circle-gHxHifAN.js">
+    <link rel="modulepreload" crossorigin href="/assets/octagon-alert-BKTYrKwo.js">
+    <link rel="modulepreload" crossorigin href="/assets/StatusIcon-byMXAxms.js">
+    <link rel="modulepreload" crossorigin href="/assets/chevron-down-BBudOVoh.js">
+    <link rel="modulepreload" crossorigin href="/assets/select-BF8ejJ2O.js">
+    <link rel="modulepreload" crossorigin href="/assets/heartbeats-CvEO7-H9.js">
+    <link rel="modulepreload" crossorigin href="/assets/minus-ChIPJ-_O.js">
+    <link rel="modulepreload" crossorigin href="/assets/rotate-ccw-qxQJzzIG.js">
+    <link rel="modulepreload" crossorigin href="/assets/triangle-alert-qe2-abhl.js">
+    <link rel="modulepreload" crossorigin href="/assets/badge-WXINLaUd.js">
+    <link rel="modulepreload" crossorigin href="/assets/environments-CGkF40-l.js">
+    <link rel="modulepreload" crossorigin href="/assets/input-B5MAXq4y.js">
+    <link rel="modulepreload" crossorigin href="/assets/company-members-BZZ2-bPJ.js">
+    <link rel="modulepreload" crossorigin href="/assets/AgentIdentity-BXcOx6mh.js">
+    <link rel="modulepreload" crossorigin href="/assets/card-HysMztk1.js">
+    <link rel="modulepreload" crossorigin href="/assets/skeleton-doHoWUyP.js">
+    <link rel="modulepreload" crossorigin href="/assets/PageSkeleton-D4Rq27Ma.js">
+    <link rel="modulepreload" crossorigin href="/assets/RoutineRunVariablesDialog-6bP_sBGg.js">
+    <link rel="modulepreload" crossorigin href="/assets/tabs-me9ALDrS.js">
+    <link rel="modulepreload" crossorigin href="/assets/save-DfpNjg8P.js">
+    <link rel="modulepreload" crossorigin href="/assets/use-adapter-capabilities-puMjEC1q.js">
+    <link rel="modulepreload" crossorigin href="/assets/external-link-u6E8YvQ2.js">
+    <link rel="modulepreload" crossorigin href="/assets/MarkdownBody-BEus0G6E.js">
+    <link rel="modulepreload" crossorigin href="/assets/file-text-Da6MLJ2s.js">
+    <link rel="modulepreload" crossorigin href="/assets/SidebarContext-OkDZBsa5.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-DMnW_oKd.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

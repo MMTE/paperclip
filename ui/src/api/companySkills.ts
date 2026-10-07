@@ -255,4 +255,20 @@ export const companySkillsApi = {
       `/companies/${encodeURIComponent(companyId)}/skills/install-catalog`,
       payload,
     ),
+  marketplaceList: () => api.get<MarketplaceListing>("/skills/marketplace"),
+};
+
+// tdh patch (2026-10-07): marketplace listings (skills.sh + skillsmp.com)
+export type MarketplaceSkill = {
+  key: string;
+  name: string;
+  owner: string;
+  repo: string;
+  url: string;
+  source: "skills-sh" | "skillsmp";
+};
+export type MarketplaceListing = {
+  fetchedAt: string;
+  sources: { id: string; label: string; siteUrl: string; count: number }[];
+  skills: MarketplaceSkill[];
 };

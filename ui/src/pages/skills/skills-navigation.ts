@@ -1,15 +1,13 @@
-export type SkillsNavigationView = "installed" | "discover" | "marketplace" | "authored";
+export type SkillsNavigationView = "installed" | "discover" | "authored";
 
 export const SKILLS_NAVIGATION_HREFS: Record<SkillsNavigationView, string> = {
   installed: "/skills",
   discover: "/skills?tab=discover",
-  marketplace: "/skills?tab=marketplace",
   authored: "/skills/studio",
 };
 
 export function resolveSkillsDiscoveryView(tabParam: string | null): Exclude<SkillsNavigationView, "authored"> {
   // Preserve old discovery links while presenting one canonical Discover view.
-  if (tabParam === "marketplace") return "marketplace";
   return ["discover", "all", "catalog", "bundled"].includes(tabParam ?? "")
     ? "discover"
     : "installed";

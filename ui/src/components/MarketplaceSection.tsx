@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink, Store } from "lucide-react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import { companySkillsApi, type MarketplaceListing, type MarketplaceSkill } from "../api/companySkills";
 
 const INITIAL_ROWS = 24;
@@ -71,21 +71,20 @@ export function MarketplaceSection() {
   const rows = data ? (expanded ? data.skills : data.skills.slice(0, INITIAL_ROWS)) : [];
 
   return (
-    <section className="px-4 pt-4" aria-label="Skill marketplaces">
-      <div className="mb-2 flex items-center gap-2">
-        <Store className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">Marketplace</h2>
-        {data ? (
-          <span className="text-xs text-muted-foreground">
-            {data.sources.map((s) => `${s.label}: ${s.count}`).join(" · ")}
-          </span>
-        ) : null}
+    <section className="px-4 pt-4 pb-8" aria-label="Skill marketplaces">
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold">Marketplace skills</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Public skill directories — skills.sh and skillsmp.com.
+          </p>
+        </div>
         {data ? (
           <a
             href={data.sources[0]?.siteUrl ?? "https://www.skills.sh"}
             target="_blank"
             rel="noreferrer"
-            className="ml-auto text-xs text-muted-foreground underline-offset-2 hover:underline"
+            className="shrink-0 text-xs text-muted-foreground underline-offset-2 hover:underline"
           >
             Browse sites
           </a>

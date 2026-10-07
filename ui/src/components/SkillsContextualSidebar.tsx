@@ -1,4 +1,4 @@
-import { Compass, Library, PencilRuler } from "lucide-react";
+import { Compass, Library, PencilRuler, Store } from "lucide-react";
 import { useLocation } from "@/lib/router";
 import {
   resolveSkillsNavigationView,
@@ -47,6 +47,13 @@ export function SkillsContextualSidebar() {
             label="Discover"
             icon={Compass}
             active={activeView === "discover"}
+            end
+          />
+          <SidebarNavItem
+            to={SKILLS_NAVIGATION_HREFS.marketplace}
+            label="Marketplace"
+            icon={Store}
+            active={activeView === "marketplace"}
             end
           />
         </div>

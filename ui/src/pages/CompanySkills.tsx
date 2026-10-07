@@ -560,8 +560,7 @@ function formatBytes(bytes: number) {
 // ---------------------------------------------------------------------------
 // Skills Store discovery grid (PAP-10879)
 // ---------------------------------------------------------------------------
-
-export type DiscoveryTab = "installed" | "discover";
+export type DiscoveryTab = "installed" | "discover" | "marketplace";
 
 export function resolveDiscoveryTab(tabParam: string | null): DiscoveryTab {
   return resolveSkillsDiscoveryView(tabParam);
@@ -5479,8 +5478,12 @@ export function CompanySkills() {
             </Tabs>
           </div>
         ) : null}
-        {streamlinedUiEnabled && effectiveDiscoveryTab === "discover" ? <MarketplaceSection /> : null}
-        <DiscoveryGrid
+        {streamlinedUiEnabled && effectiveDiscoveryTab === "marketplace" ? (
+          <div className="min-h-0 flex-1 overflow-auto">
+            <MarketplaceSection />
+          </div>
+        ) : (
+          <DiscoveryGrid
           tab={effectiveDiscoveryTab}
           categories={discoveryCategoryCounts}
           categoryTotal={discoveryTabCards.length}
@@ -5566,6 +5569,7 @@ export function CompanySkills() {
           folderNudgeStorageKey={showInstalledFolders ? `paperclip:skills-folder-nudge:${selectedCompanyId ?? "none"}` : undefined}
           showBrowseRails={browseRailsEnabled}
         />
+        )}
         </>
       ) : activeView === "installed" && selectedSkillId ? (
         <SkillDetailPage

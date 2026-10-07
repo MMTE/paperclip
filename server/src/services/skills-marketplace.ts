@@ -76,6 +76,17 @@ function parseSkillsMp(html: string): MarketplaceSkill[] {
   return out;
 }
 
+// Alternate sources so the smaller directory stays visible in the initial view.
+function interleaveSources(a: MarketplaceSkill[], b: MarketplaceSkill[]): MarketplaceSkill[] {
+  const [longer, shorter] = a.length >= b.length ? [a, b] : [b, a];
+  const out: MarketplaceSkill[] = [];
+  for (let i = 0; i < longer.length; i += 1) {
+    out.push(longer[i]);
+    if (i < shorter.length) out.push(shorter[i]);
+  }
+  return out;
+}
+
 export async function listMarketplaceSkills(force = false): Promise<MarketplaceListing> {
   if (!force && cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.data;
   const [shHtml, mpHtml] = await Promise.all([
@@ -90,7 +101,7 @@ export async function listMarketplaceSkills(force = false): Promise<MarketplaceL
       { id: "skills-sh", label: "skills.sh", siteUrl: "https://www.skills.sh", count: skillsSh.length },
       { id: "skillsmp", label: "skillsmp.com", siteUrl: "https://skillsmp.com/skills", count: skillsMp.length },
     ],
-    skills: [...skillsSh, ...skillsMp],
+    skills: interleaveSources(skillsSh, skillsMp),
   };
   cache = { at: Date.now(), data };
   return data;

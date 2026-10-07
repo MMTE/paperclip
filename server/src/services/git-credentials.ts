@@ -225,9 +225,9 @@ export function createGitRemoteAuthProvider(
   const secrets: GitCredentialSecretsDeps = deps?.secrets ?? secretService(db);
   const env = deps?.env ?? process.env;
   const secretNames = deps?.secretNames ?? DEFAULT_GITHUB_TOKEN_SECRET_NAMES;
-  let credentialPromise: Promise<GitCredential | null> | null = null;
-
-  const resolveCredential = async (): Promise<GitCredential | null> => {
+  let credentialPromise: Promise<GitCredential[]> | null = null;
+  const remoteCredentialCache = new Map<string, GitCredential | null>();
+  const resolveCredentialCandidates = async (): Promise<GitCredential[]> => {
     // Unit callers historically pass a null DB through the typed test seam. Production
     // always supplies a real DB and therefore always checks managed identities before
     // considering legacy secrets or process environment credentials.
@@ -236,8 +236,10 @@ export function createGitRemoteAuthProvider(
       : { configured: false as const };
     if (managed.configured) {
       if (!managed.credential) throw new Error(managed.error ?? "Managed GitHub connection is unavailable");
-      return managed.credential;
+      return [managed.credential];
     }
+    const candidates: GitCredential[] = [];
+    const seen = new Set<string>();
     for (const secretName of secretNames) {
       const secret = await Promise.resolve(secrets.getByName(companyId, secretName)).catch(() => null);
       if (!secret) continue;
@@ -256,11 +258,42 @@ export function createGitRemoteAuthProvider(
         })
         .then((value) => value.trim())
         .catch(() => "");
-      if (token) return { token, source: "company_secret", secretName };
+      if (token && !seen.has(token)) {
+        seen.add(token);
+        candidates.push({ token, source: "company_secret", secretName });
+      }
     }
     const envToken = env.GITHUB_TOKEN?.trim() || env.GH_TOKEN?.trim() || "";
-    if (envToken) return { token: envToken, source: "server_env", secretName: null };
-    return null;
+    if (envToken && !seen.has(envToken)) {
+      candidates.push({ token: envToken, source: "server_env", secretName: null });
+    }
+    return candidates;
+  };
+
+  // tdh patch (2026-10-07): with multiple candidate credentials (one company secret
+  // per GitHub org), pick per remote instead of first-found. Single-candidate setups
+  // keep the original behavior with no extra network traffic.
+  const selectCredentialForRemote = async (remoteUrl: string): Promise<GitCredential | null> => {
+    credentialPromise ??= resolveCredentialCandidates();
+    const candidates = await credentialPromise;
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) return candidates[0];
+    const cacheKey = remoteUrl.replace(/\.git$/, "");
+    if (remoteCredentialCache.has(cacheKey)) return remoteCredentialCache.get(cacheKey) ?? null;
+    const match = /^https?:\/\/(?:www\.)?github\.com\/([^/]+)\/([^/?#]+)/.exec(cacheKey);
+    let selected: GitCredential | null = candidates[0];
+    if (match) {
+      const [, owner, repo] = match;
+      let probed: GitCredential | null = null;
+      for (const candidate of candidates) {
+        const accessible = await githubTokenCanAccessRepo(candidate.token, owner, repo);
+        if (accessible === true) { probed = candidate; break; }
+        if (accessible === null) { probed = null; break; }
+      }
+      selected = probed ?? candidates[0];
+    }
+    remoteCredentialCache.set(cacheKey, selected);
+    return selected;
   };
 
   return async (remoteUrl: string) => {
@@ -275,7 +308,7 @@ export function createGitRemoteAuthProvider(
           companyId, runId: context.heartbeatRunId, agentId: context.agentId,
         });
         if (result.status === "absent") {
-          const credential = await resolveCredential();
+          const credential = await selectCredentialForRemote(remoteUrl);
           return credential ? buildGitAuthInvocation(credential) : null;
         }
         const anonymous = buildGitAuthInvocation({ token: "", source: "managed_connection", secretName: null });
@@ -286,11 +319,30 @@ export function createGitRemoteAuthProvider(
         } };
       }
     }
-    credentialPromise ??= resolveCredential();
-    const credential = await credentialPromise;
+    const credential = await selectCredentialForRemote(remoteUrl);
     if (!credential) return null;
     return buildGitAuthInvocation(credential);
   };
+}
+
+// tdh patch (2026-10-07): probe whether a token can read a GitHub repo.
+// true/false = conclusive; null = inconclusive (network error / unexpected status).
+async function githubTokenCanAccessRepo(token: string, owner: string, repo: string): Promise<boolean | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
+      signal: controller.signal,
+    });
+    if (res.status === 200) return true;
+    if (res.status === 401 || res.status === 403 || res.status === 404) return false;
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function resolveManagedGitHubIdentitySelection(

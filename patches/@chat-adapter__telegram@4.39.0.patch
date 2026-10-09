@@ -1,7 +1,8 @@
 diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 5825898f8867a47a3c24d59559ae8b6ac2dfbe44..c5742c3873dea660b4f8bf43bc8a07e67aa5b75a 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
-@@ -53,6 +53,8 @@
+@@ -53,6 +53,8 @@ interface TelegramAdapterConfig {
      botToken?: string | (() => string | Promise<string>);
      /** Logger instance for error reporting. Defaults to ConsoleLogger. */
      logger?: Logger;
@@ -10,7 +11,7 @@ diff --git a/dist/index.d.ts b/dist/index.d.ts
      /** Optional long-polling configuration for getUpdates flow. */
      longPolling?: TelegramLongPollingConfig;
      /**
-@@ -646,6 +648,7 @@
+@@ -646,6 +648,7 @@ declare class TelegramAdapter implements Adapter<TelegramThreadId, TelegramRawMe
      protected readonly botTokenProvider: () => Promise<string>;
      protected readonly staticBotToken?: string;
      protected readonly apiBaseUrl: string;
@@ -18,7 +19,7 @@ diff --git a/dist/index.d.ts b/dist/index.d.ts
      protected readonly secretToken?: string;
      protected readonly mentionOnReply: boolean;
      private botIdentityPromise;
-@@ -669,6 +672,8 @@
+@@ -669,6 +672,8 @@ declare class TelegramAdapter implements Adapter<TelegramThreadId, TelegramRawMe
      private pollingTask;
      private pollingActive;
      private nextDraftId;
@@ -28,9 +29,10 @@ diff --git a/dist/index.d.ts b/dist/index.d.ts
      get botUserId(): string | undefined;
      get userName(): string;
 diff --git a/dist/index.js b/dist/index.js
+index d2ed8e4495099e36c457174cb239f002d2a1ca70..5556ed681e962471c569049914d5f45ebb1c0090 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -771,9 +771,10 @@
+@@ -771,9 +771,10 @@ function richMessageMedia(message) {
  var TELEGRAM_API_BASE = "https://api.telegram.org";
  var TELEGRAM_FILE_LIMIT = 25 * 1024 * 1024;
  var TELEGRAM_FILE_TIMEOUT_MS = 3e4;
@@ -43,7 +45,7 @@ diff --git a/dist/index.js b/dist/index.js
      await response.body?.cancel();
      throw new NetworkError(
        "telegram",
-@@ -792,7 +793,7 @@
+@@ -792,7 +793,7 @@ async function readTelegramFile(response, fileId) {
        break;
      }
      size += value.length;
@@ -52,7 +54,7 @@ diff --git a/dist/index.js b/dist/index.js
        await reader.cancel();
        throw new NetworkError(
          "telegram",
-@@ -989,6 +990,7 @@
+@@ -989,6 +990,7 @@ var TelegramAdapter = class {
    botTokenProvider;
    staticBotToken;
    apiBaseUrl;
@@ -60,7 +62,7 @@ diff --git a/dist/index.js b/dist/index.js
    secretToken;
    mentionOnReply;
    botIdentityPromise = null;
-@@ -1012,6 +1014,7 @@
+@@ -1012,6 +1014,7 @@ var TelegramAdapter = class {
    pollingTask = null;
    pollingActive = false;
    nextDraftId = Math.max(1, Date.now() % 2147483647);
@@ -68,7 +70,7 @@ diff --git a/dist/index.js b/dist/index.js
    richMessagesAvailable = true;
    get botUserId() {
      return this._botUserId;
-@@ -1038,6 +1041,12 @@
+@@ -1038,6 +1041,12 @@ var TelegramAdapter = class {
      this.apiBaseUrl = trimTrailingSlashes(
        config.apiUrl ?? config.apiBaseUrl ?? process.env.TELEGRAM_API_BASE_URL ?? TELEGRAM_API_BASE
      );
@@ -81,7 +83,37 @@ diff --git a/dist/index.js b/dist/index.js
      this.secretToken = config.secretToken ?? process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN;
      this.allowUnverifiedWebhooks = config.allowUnverifiedWebhooks ?? process.env.TELEGRAM_ALLOW_UNVERIFIED_WEBHOOKS === "true";
      this.mentionOnReply = config.mentionOnReply ?? process.env.TELEGRAM_MENTION_ON_REPLY === "true";
-@@ -1949,6 +1958,9 @@
+@@ -1552,6 +1561,14 @@ var TelegramAdapter = class {
+       callbackQuery.message.message_id
+     );
+     const { actionId, value } = decodeTelegramCallbackData(callbackQuery.data);
++    const ackTask = this.telegramFetch("answerCallbackQuery", {
++      callback_query_id: callbackQuery.id
++    }).catch((error) => {
++      this.logger.warn("Failed to acknowledge Telegram callback query", {
++        callbackQueryId: callbackQuery.id,
++        error: String(error)
++      });
++    });
+     this.chat.processAction(
+       {
+         adapter: this,
+@@ -1564,14 +1581,6 @@ var TelegramAdapter = class {
+       },
+       options
+     );
+-    const ackTask = this.telegramFetch("answerCallbackQuery", {
+-      callback_query_id: callbackQuery.id
+-    }).catch((error) => {
+-      this.logger.warn("Failed to acknowledge Telegram callback query", {
+-        callbackQueryId: callbackQuery.id,
+-        error: String(error)
+-      });
+-    });
+     if (options?.waitUntil) {
+       options.waitUntil(ackTask);
+     }
+@@ -1949,6 +1958,9 @@ var TelegramAdapter = class {
      });
    }
    async stream(threadId, textStream, options) {
@@ -91,7 +123,7 @@ diff --git a/dist/index.js b/dist/index.js
      if (this.nativeStreaming && this.isDM(threadId)) {
        return await this.nativeDraftStream(threadId, textStream, options);
      }
-@@ -2089,6 +2101,29 @@
+@@ -2089,6 +2101,29 @@ var TelegramAdapter = class {
    }
    async nativeDraftStream(threadId, textStream, options) {
      const parsedThread = this.resolveThreadId(threadId);
@@ -121,7 +153,7 @@ diff --git a/dist/index.js b/dist/index.js
      const updateIntervalMs = this.clampInteger(
        options?.updateIntervalMs,
        TELEGRAM_DEFAULT_STREAM_UPDATE_INTERVAL_MS,
-@@ -2096,7 +2131,7 @@
+@@ -2096,7 +2131,7 @@ var TelegramAdapter = class {
        Number.MAX_SAFE_INTEGER
      );
      const renderer = new StreamingMarkdownRenderer2();
@@ -130,7 +162,7 @@ diff --git a/dist/index.js b/dist/index.js
      let accumulated = "";
      let lastDraftText = null;
      let lastFlushAt = 0;
-@@ -2124,7 +2159,7 @@
+@@ -2124,7 +2159,7 @@ var TelegramAdapter = class {
        let draftText = text2;
        if (streamUsesRich) {
          try {
@@ -139,7 +171,7 @@ diff --git a/dist/index.js b/dist/index.js
              chat_id: parsedThread.chatId,
              message_thread_id: parsedThread.messageThreadId,
              draft_id: draftId,
-@@ -2136,6 +2171,7 @@
+@@ -2136,6 +2171,7 @@ var TelegramAdapter = class {
            lastFlushAt = Date.now();
            return;
          } catch (error) {
@@ -147,7 +179,7 @@ diff --git a/dist/index.js b/dist/index.js
            if (!this.canFallbackFromRichMessage(error, "sendRichMessageDraft")) {
              draftStreamingEnabled = false;
              this.logger.warn("Telegram rich draft streaming update failed", {
-@@ -2158,7 +2194,7 @@
+@@ -2158,7 +2194,7 @@ var TelegramAdapter = class {
        }
        try {
          if (useMarkdown) {
@@ -156,7 +188,7 @@ diff --git a/dist/index.js b/dist/index.js
              chat_id: parsedThread.chatId,
              message_thread_id: parsedThread.messageThreadId,
              draft_id: draftId,
-@@ -2166,7 +2202,7 @@
+@@ -2166,7 +2202,7 @@ var TelegramAdapter = class {
              parse_mode: toBotApiParseMode("MarkdownV2")
            });
          } else {
@@ -165,7 +197,7 @@ diff --git a/dist/index.js b/dist/index.js
              chat_id: parsedThread.chatId,
              message_thread_id: parsedThread.messageThreadId,
              draft_id: draftId,
-@@ -2176,11 +2212,12 @@
+@@ -2176,11 +2212,12 @@ var TelegramAdapter = class {
          lastDraftText = draftText;
          lastFlushAt = Date.now();
        } catch (error) {
@@ -179,7 +211,7 @@ diff --git a/dist/index.js b/dist/index.js
                chat_id: parsedThread.chatId,
                message_thread_id: parsedThread.messageThreadId,
                draft_id: draftId,
-@@ -2189,6 +2226,7 @@
+@@ -2189,6 +2226,7 @@ var TelegramAdapter = class {
              lastDraftText = plainDraftText;
              lastFlushAt = Date.now();
            } catch (retryError) {
@@ -187,7 +219,7 @@ diff --git a/dist/index.js b/dist/index.js
              draftStreamingEnabled = false;
              this.logger.warn("Telegram draft streaming update failed", {
                error: String(retryError),
-@@ -2230,6 +2268,7 @@
+@@ -2230,6 +2268,7 @@ var TelegramAdapter = class {
        renderer.push(text2);
        if (Date.now() - lastFlushAt >= updateIntervalMs) {
          await flushDraft();
@@ -195,7 +227,7 @@ diff --git a/dist/index.js b/dist/index.js
        }
      }
      if (!accumulated.trim()) {
-@@ -2240,6 +2279,9 @@
+@@ -2240,6 +2279,9 @@ var TelegramAdapter = class {
      }
      const finalMarkdown = renderer.finish();
      await flushDraft();
@@ -205,7 +237,7 @@ diff --git a/dist/index.js b/dist/index.js
      if (streamUsesRich) {
        const markdown = truncateRichMarkdown(finalMarkdown);
        try {
-@@ -2625,7 +2667,7 @@
+@@ -2625,7 +2667,7 @@ var TelegramAdapter = class {
        );
      }
      try {
@@ -214,7 +246,7 @@ diff --git a/dist/index.js b/dist/index.js
      } catch (error) {
        if (error instanceof NetworkError) {
          throw error;
-@@ -3439,6 +3481,12 @@
+@@ -3439,6 +3481,12 @@ var TelegramAdapter = class {
    async telegramFetch(method, payload, request) {
      const botToken = this.staticBotToken ?? await this.resolveBotToken();
      const url = `${this.apiBaseUrl}/bot${botToken}/${method}`;
@@ -227,7 +259,7 @@ diff --git a/dist/index.js b/dist/index.js
      let response;
      try {
        response = await fetch(url, {
-@@ -3447,7 +3495,7 @@
+@@ -3447,7 +3495,7 @@ var TelegramAdapter = class {
            "Content-Type": "application/json"
          },
          body: payload instanceof FormData ? payload : JSON.stringify(payload ?? {}),

@@ -133,7 +133,7 @@ export async function admitExplicitNativeContinuation(input: {
     eq(issueRecoveryActions.companyId, companyId), eq(issueRecoveryActions.sourceIssueId, issueId),
     executionBlockerPredicate(),
   )).for("update");
-  if (!actions.length) return null;
+  if (!actions.length) { blocked("no_execution_blocker", "No execution recovery is pending anymore."); return null; }
   const blocker = await getExecutionBlocker(db, companyId, issueId);
   if (blocker && blocker.recoveryActionId === null) return null;
   const [pendingInteraction] = await db.select({ id: issueThreadInteractions.id }).from(issueThreadInteractions).where(and(

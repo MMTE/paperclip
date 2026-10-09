@@ -10377,6 +10377,24 @@ export function heartbeatService(
           onBlocked: (reason, message) => { wait = { reason, message }; },
         });
         if (!admitted) {
+          // tdh patch: when no execution blocker exists anymore, the deferral's
+          // precondition has evaporated — retire the orphaned wake instead of
+          // re-writing a stale executionWait forever (observed 2026-10-09:
+          // user comments on TDH-54 stuck "Waiting for execution recovery"
+          // for hours after the recovery action resolved).
+          if (wait.reason === "no_execution_blocker") {
+            await db.update(agentWakeupRequests).set({ status: "skipped", updatedAt: new Date() })
+              .where(and(eq(agentWakeupRequests.id, wake.id), eq(agentWakeupRequests.companyId, run.companyId),
+                eq(agentWakeupRequests.status, "deferred_issue_execution")));
+            await enqueueWakeup(run.agentId, {
+              source: wake.source as WakeupOptions["source"],
+              triggerDetail: (wake.triggerDetail ?? undefined) as WakeupOptions["triggerDetail"],
+              reason, payload, contextSnapshot: context,
+              requestedByActorType: "user", requestedByActorId,
+              idempotencyKey: `orphaned-deferral:${wake.id}`,
+            });
+            continue;
+          }
           await db.update(agentWakeupRequests).set({
             payload: sql`jsonb_set(coalesce(${agentWakeupRequests.payload}, '{}'::jsonb), '{executionWait}',
               coalesce(${agentWakeupRequests.payload}->'executionWait', '{}'::jsonb) || ${JSON.stringify(wait)}::jsonb)`,

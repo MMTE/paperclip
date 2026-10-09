@@ -38064,6 +38064,11 @@ export function chatChannelService(db: Db, options: ChatChannelServiceOptions) {
                         "streaming",
                         "delivery_unknown",
                       ]),
+                      // tdh patch: a stale delivery_unknown head must not starve
+                      // the conversation FIFO forever. After 10 minutes, later
+                      // pending rows may proceed; operators can still resolve the
+                      // unknown row (replay/cancel) at any time.
+                      sql`(${earlierPublication.state} is distinct from 'delivery_unknown' or ${earlierPublication.updatedAt} > now() - interval '10 minutes')`,
                     ),
                   ),
               ),

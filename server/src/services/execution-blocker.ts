@@ -10,7 +10,12 @@ export function executionBlockerPredicate() {
     not(conversationRecoveryActionPredicate()!),
     inArray(issueRecoveryActions.cause, [...EXECUTION_RECONCILIATION_CAUSES]),
     or(inArray(issueRecoveryActions.status, ["active", "escalated"]),
-      sql`${issueRecoveryActions.evidence}->'automaticRecovery'->>'replay' = 'blocked'`),
+      // tdh patch (upstream #14905): a RESOLVED action with replay=blocked used
+      // to hold the execution block forever with nothing clearing it (six
+      // issues wedged live on 2026-10-09). Replay holds require an
+      // unresolved action; resolution ends the hold.
+      and(sql`${issueRecoveryActions.evidence}->'automaticRecovery'->>'replay' = 'blocked'`,
+        inArray(issueRecoveryActions.status, ["active", "escalated", "pending"]))),
   );
 }
 

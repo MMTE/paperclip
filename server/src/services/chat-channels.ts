@@ -37180,6 +37180,11 @@ export function chatChannelService(db: Db, options: ChatChannelServiceOptions) {
             "streaming",
             "delivery_unknown",
           ]),
+          // tdh patch: mirror the selection-level bypass here — a stale
+          // delivery_unknown head must not make the per-row re-check return
+          // silently either (observed live: rows selected, attempts never
+          // incremented, no error, queue frozen).
+          sql`(${chatPublications.state} is distinct from 'delivery_unknown' or ${chatPublications.createdAt} > now() - interval '10 minutes')`,
         ),
       )
       .limit(1)

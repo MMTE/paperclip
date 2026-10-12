@@ -10762,8 +10762,18 @@ export function issueService(db: Db) {
         updatedAt: new Date(),
       };
       if (existing.status !== "blocked" && issueData.status === "blocked") {
-        patch.blockedTransitionAt = patch.updatedAt;
-        patch.blockedOwnerNotifiedAt = null;
+        // A run claim flips a blocked issue to in_progress directly, without
+        // clearing blockedTransitionAt. Re-entering blocked while an execution
+        // lock is still held is therefore the same wait continuing, not a new
+        // blocked cycle: re-stamping would mint a fresh
+        // issue_blockers_resolved cycle key on every wake->run bounce and
+        // self-wake the assignee in a loop (and re-key owner notification).
+        const resumeFromExecution =
+          existing.checkoutRunId != null || existing.executionRunId != null;
+        if (!resumeFromExecution) {
+          patch.blockedTransitionAt = patch.updatedAt;
+          patch.blockedOwnerNotifiedAt = null;
+        }
       } else if (
         existing.status === "blocked" &&
         issueData.status &&

@@ -34,6 +34,7 @@ import {
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
+  type EmbeddedPostgresTestDatabase,
 } from "./helpers/embedded-postgres.js";
 import { instanceSettingsService } from "../services/instance-settings.ts";
 import {
@@ -7373,4 +7374,101 @@ describeEmbeddedPostgres("issueService.addComment createdByRunId", () => {
       .where(eq(issueComments.createdByRunId, runId));
     expect(duplicates).toHaveLength(1);
   });
+});
+
+describeEmbeddedPostgres("issueService.update blocked-cycle stamping", () => {
+  let tempDb: EmbeddedPostgresTestDatabase | null = null;
+
+  afterAll(async () => {
+    await tempDb?.cleanup();
+  });
+
+  async function seedBlockedIssue(opts: {
+    status: string;
+    blockedTransitionAt: Date | null;
+    checkoutRunId?: string | null;
+    executionRunId?: string | null;
+  }) {
+    const db = createDb(tempDb!.connectionString);
+    const companyId = randomUUID();
+    const agentId = randomUUID();
+    const issueId = randomUUID();
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: randomUUID().slice(0, 6).toUpperCase(),
+      requireBoardApprovalForNewAgents: false,
+    });
+    await db.insert(agents).values({
+      id: agentId,
+      companyId,
+      name: "CycleAgent",
+      role: "engineer",
+      status: "active",
+      adapterType: "codex_local",
+      adapterConfig: {},
+      runtimeConfig: {},
+      permissions: {},
+    });
+    if (opts.checkoutRunId) {
+      await db.insert(heartbeatRuns).values({
+        id: opts.checkoutRunId,
+        companyId,
+        agentId,
+        status: "running",
+      });
+    }
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Blocked cycle stamping",
+      status: opts.status,
+      priority: "medium",
+      assigneeAgentId: agentId,
+      blockedTransitionAt: opts.blockedTransitionAt,
+      blockedOwnerNotifiedAt: opts.blockedTransitionAt,
+      checkoutRunId: opts.checkoutRunId ?? null,
+      executionRunId: opts.executionRunId ?? null,
+    });
+    return { db, issueId };
+  }
+
+  it("preserves blockedTransitionAt when the assignee re-declares blocked at run end", async () => {
+    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-blocked-cycle-resume-");
+    const originalStamp = new Date("2026-10-12T16:05:00.000Z");
+    const runId = randomUUID();
+    // Run claim: direct in_progress flip with execution lock, stamp untouched.
+    const { db, issueId } = await seedBlockedIssue({
+      status: "in_progress",
+      blockedTransitionAt: originalStamp,
+      checkoutRunId: runId,
+      executionRunId: runId,
+    });
+
+    const updated = await issueService(db).update(issueId, {
+      status: "blocked",
+      checkoutRunId: null,
+      executionRunId: null,
+    });
+
+    expect(updated?.status).toBe("blocked");
+    expect(updated?.blockedTransitionAt?.toISOString()).toBe(originalStamp.toISOString());
+    // Owner must not be re-notified for the same wait period.
+    expect(updated?.blockedOwnerNotifiedAt?.toISOString()).toBe(originalStamp.toISOString());
+  }, 20_000);
+
+  it("stamps a fresh blockedTransitionAt when blocked is entered outside an execution interlude", async () => {
+    const before = new Date();
+    const { db, issueId } = await seedBlockedIssue({
+      status: "todo",
+      blockedTransitionAt: null,
+    });
+
+    const updated = await issueService(db).update(issueId, { status: "blocked" });
+
+    expect(updated?.status).toBe("blocked");
+    expect(updated?.blockedTransitionAt).not.toBeNull();
+    expect(updated!.blockedTransitionAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
+    expect(updated?.blockedOwnerNotifiedAt).toBeNull();
+  }, 20_000);
 });
